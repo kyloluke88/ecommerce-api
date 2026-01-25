@@ -43,6 +43,8 @@ func main() {
 
 	bootstrap.SetupRoute(router)
 
+	bootstrap.SetupCustomRules()
+
 	// 运行服务
 	err := router.Run(":" + config.Get[string]("app.port"))
 	if err != nil {
