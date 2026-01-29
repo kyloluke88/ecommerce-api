@@ -52,3 +52,7 @@ func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
 
 	
 }
+
+func (sc *SignupController) Login(c *gin.Context) {
+	response.Data(c, gin.H{"login": "login successful"})
+}

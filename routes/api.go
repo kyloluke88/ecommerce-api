@@ -22,12 +22,12 @@ func RegisterApiRoutes(r *gin.Engine) {
 	}
 	v1.Use(middlewares.Common())
 	
-	client := v1.Group("client")
 	{
-		auth := client.Group("/auth")
+		auth := v1.Group("/auth")
 		{
 			suc := new(clientAuth.SignupController)
 			auth.POST("/signup/email/exist", suc.IsEmailExist)
+			auth.POST("/login", suc.Login)
 		}
 	}
 
