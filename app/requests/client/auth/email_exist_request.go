@@ -6,16 +6,15 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type SignupRequest struct {
+type EmailIsExistRequest struct {
 	Email string `json:"email" validate:"required,email,email_not_exists"`
-	Phone string `json:"phone" validate:"required"`
 }
 
-func RegisterValidations(v *validator.Validate) {
+func RegisterEmailIsExist(v *validator.Validate) {
 	_ = v.RegisterValidation("email_not_exists", emailNotExists)
 }
 
-
 func emailNotExists(fl validator.FieldLevel) bool {
+	// 返回false 验证失败
 	return !user.IsEmailExist(fl.Field().String())
 }

@@ -8,29 +8,42 @@ import (
 	request "api/app/requests"
 	authRequest "api/app/requests/client/auth"
 
-	"api/pkg/logger"
+	// "api/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 
+	"api/app/models/user"
+	"api/pkg/jwt"
+	"api/pkg/logger"
 	"api/pkg/response"
 )
 
 // SignupController 注册控制器
 type SignupController struct {
-    v1.BaseAPIController
+	v1.BaseAPIController
 }
 
 func (*SignupController) IsEmailExist(c *gin.Context) {
- 	var req authRequest.SignupRequest
+	var req authRequest.EmailIsExistRequest
 
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{
-	// 		"error": err,
-	// 	})
-	
-	// 	return
-	// }
-	logger.DebugString("", "","")
+	if err := c.ShouldBind(&req); err != nil {
+		response.Error(c, err, "ShouldBindJSON ERR")
+		return
+	}
+
+	if err := request.Validate.Struct(&req); err != nil {
+		errMsg := requests.MakeErrorMsg(c, err)
+		response.ValidationError(c, errMsg)
+		return
+	}
+
+	response.JSON(c, gin.H{"exists": false})
+}
+
+// SignupUsingEmail 使用 Email + 验证码进行注册
+func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
+
+	var req authRequest.SignupEmailRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err, "ShouldBindJSON ERR")
@@ -38,21 +51,29 @@ func (*SignupController) IsEmailExist(c *gin.Context) {
 	}
 
 	if err := request.Validate.Struct(&req); err != nil {
-		errMsg := requests.MakeErrorMsg(c,err)
-		response.ValidationError(c,errMsg)
+		errMsg := requests.MakeErrorMsg(c, err)
+		response.ValidationError(c, errMsg)
 		return
 	}
 
-	response.JSON(c,gin.H{"exists": false})
+	userModel := user.User{
+		Email:     req.Email,
+		Password:  req.Password,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	}
 
-}
+	userModel.Create()
 
-// SignupUsingEmail 使用 Email + 验证码进行注册
-func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
+	logger.DebugJSON("create", "user", userModel)
+	if userModel.ID > 0 {
+		token := jwt.NewJWT().IssueToken(userModel.GetStringID(), userModel.DisplayName, "user", "shop-user")
 
-	
-}
-
-func (sc *SignupController) Login(c *gin.Context) {
-	response.Data(c, gin.H{"login": "login successful"})
+		response.JSON(c, gin.H{
+			"token": token,
+			"data":  userModel,
+		})
+	} else {
+		response.Abort500(c, "user create failed, please try again later")
+	}
 }

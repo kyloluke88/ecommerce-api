@@ -6,6 +6,7 @@ import (
 	"api/pkg/config"
 	"api/pkg/logger"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ type JWTCustomClaims struct {
 	UserID       string `json:"user_id"`
 	UserName     string `json:"user_name"`
 	ExpireAtTime int64  `json:"expire_time"`
+	Role 		string 	`json:"role"`
 
 	// StandardClaims 结构体实现了 Claims 接口继承了  Valid() 方法
 	// JWT 规定了7个官方字段，提供使用:
@@ -125,19 +127,23 @@ func (jwt *JWT) RefreshToken(c *gin.Context) (string, error) {
 }
 
 // IssueToken 生成  Token，在登录成功时调用
-func (jwt *JWT) IssueToken(userID string, userName string) string {
+func (jwt *JWT) IssueToken(userID string, userName string, role string, issuer string) string {
 
 	// 1. 构造用户 claims 信息(负荷)
 	expireAtTime := jwt.expireAtTime()
+
+	fmt.Println("expireAtTime: ", expireAtTime)
 	claims := JWTCustomClaims{
 		userID,
 		userName,
 		expireAtTime,
+		role,
+		
 		jwtpkg.StandardClaims{
 			NotBefore: app.TimenowInTimezone().Unix(), // 签名生效时间
 			IssuedAt:  app.TimenowInTimezone().Unix(), // 首次签名时间（后续刷新 Token 不会更新）
 			ExpiresAt: expireAtTime,                   // 签名过期时间
-			Issuer:    config.Get[string]("app.name"),   // 签名颁发者
+			Issuer:    issuer,   // 签名颁发者
 		},
 	}
 

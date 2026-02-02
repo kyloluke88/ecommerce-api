@@ -4,28 +4,27 @@ package user
 import (
 	"api/app/models"
 	"api/pkg/database"
+
 	// "gohub/pkg/hash"
+	"fmt"
 )
 
 // User 用户模型
 type User struct {
 	models.BaseModel
-
-	Name string `json:"name,omitempty"`
-
-	City         string `json:"city,omitempty"`
-	Introduction string `json:"introduction,omitempty"`
-	Avatar       string `json:"avatar,omitempty"`
-
-	Email    string `json:"-"`
-	Phone    string `json:"-"`
-	Password string `json:"-"`
+	FirstName   string  `json:"first_name,omitempty"`
+	LastName    string  `json:"last_name,omitempty"`
+	DisplayName string  `json:"display_name,omitempty" gorm:"column:display_name;<-:false"`
+	Email       string  `json:"email"`
+	Phone       *string `json:"phone"` // 因为零值为 “”， 会触发DB的phone unique constraint Error， 所以这里使用指针实现可有可无
+	Password    string  `json:"-"`
+	Avatar      string  `json:"avatar"`
 
 	models.CommonTimestampsField
 }
 
 func (User) TableName() string {
-	return "admins"
+	return "users"
 }
 
 // Create 创建用户，通过 User.ID 来判断是否创建成功
@@ -43,7 +42,6 @@ func (userModel *User) Save() (rowsAffected int64) {
 	return result.RowsAffected
 }
 
-
-
-
-
+func (userModel *User) FullName() string {
+	return fmt.Sprintf("%s %s", userModel.FirstName, userModel.LastName)
+}

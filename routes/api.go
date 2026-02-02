@@ -2,6 +2,7 @@ package routes
 
 import (
 	clientAuth "api/app/http/controllers/client/v1/auth"
+
 	"api/pkg/config"
 
 	"api/app/http/middlewares"
@@ -20,16 +21,32 @@ func RegisterApiRoutes(r *gin.Engine) {
 	} else {
 		v1 = r.Group("/v1")
 	}
+
 	v1.Use(middlewares.Common())
-	
+	authGroup := v1.Group("/auth")
 	{
-		auth := v1.Group("/auth")
-		{
-			suc := new(clientAuth.SignupController)
-			auth.POST("/signup/email/exist", suc.IsEmailExist)
-			auth.POST("/login", suc.Login)
-		}
+
+		suc := new(clientAuth.SignupController)
+		authGroup.POST("/signup/email/exist", suc.IsEmailExist)
+		authGroup.POST("/signup/using-email", suc.SignupUsingEmail)
+
+		sic := new(clientAuth.SigninController)
+		authGroup.POST("/signin", sic.SignIn)
+		authGroup.POST("/signin/refresh_token", middlewares.AuthJWT(), sic.RefreshToken)
+
 	}
+
+	// userGroup := v1.Group("/user", middlewares.AuthJWT())
+	// {
+	// 	authGroup.Use(middlewares.AuthJWT())
+	// 	{
+	// 		suc := new(clientUser.UserController)
+	// 		authGroup.POST("/signup/email/exist", suc.IsEmailExist)
+	// 		authGroup.POST("/signin", suc.SignIn)
+	// 		authGroup.POST("/signin/refresh_token", suc.SignIn)
+	// 	}
+
+	// }
 
 	// admin := v1.Group("admin")
 	// {
@@ -40,7 +57,4 @@ func RegisterApiRoutes(r *gin.Engine) {
 	// 	}
 	// }
 
-
-
-	
 }

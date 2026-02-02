@@ -2,7 +2,7 @@
 package middlewares
 
 import (
-	"api/app/models/user"
+	"api/app/models/admin"
 	"api/pkg/config"
 	"api/pkg/jwt"
 	"api/pkg/response"
@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthJWT() gin.HandlerFunc {
+func AuthJWTAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		// 从标头 Authorization:Bearer xxxxx 中获取信息，并验证 JWT 的准确性
@@ -24,16 +24,16 @@ func AuthJWT() gin.HandlerFunc {
 		}
 
 		// JWT 解析成功，设置用户信息
-		userModel := user.Get(claims.UserID)
-		if userModel.ID == 0 {
+		adminModel := admin.Get(claims.UserID)
+		if adminModel.ID == 0 {
 			response.Unauthorized(c, "找不到对应用户，用户可能已删除")
 			return
 		}
 
 		// 将用户信息存入 gin.context 里，后续 auth 包将从这里拿到当前用户数据
 		// c.Set("current_user_id", userModel.GetStringID())
-		c.Set("current_user_name", userModel.FirstName + " " + userModel.LastName)
-		c.Set("current_user", userModel)
+		c.Set("current_admin_name", adminModel.FirstName +""+ adminModel.LastName)
+		c.Set("current_admin", adminModel)
 
 		c.Next()
 	}

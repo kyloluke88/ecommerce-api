@@ -4,6 +4,7 @@ package config
 import (
 	"api/pkg/helpers"
 	"os"
+	"reflect"
 
 	viperlib "github.com/spf13/viper" // 自定义包名，避免与内置 viper 实例冲突
 )
@@ -91,11 +92,37 @@ func Add(name string, configFn ConfigFunc) {
 // }
 
 func Get[T any](path string, defaultValue ...interface{}) T {
-	if value := internalGet(path, defaultValue...); value != nil {
-		return value.(T)
-	}
-	// 泛型不能返回 nil，因此需要根据类型建立空变量，这样返回的会是对应类型的"空"值
+	// if value := internalGet(path, defaultValue...); value != nil {
+	// 	return value.(T)
+	// }
+	// // 泛型不能返回 nil，因此需要根据类型建立空变量，这样返回的会是对应类型的"空"值
+	// var fallback T
+	// return fallback
+
+	value := internalGet(path, defaultValue...)
+	
 	var fallback T
+	if value == nil {
+		return fallback
+	}
+
+	// 1. 如果类型完全匹配（比如都是 int64），直接返回
+	if v, ok := value.(T); ok {
+		return v
+	}
+
+	// 2. 如果类型不匹配，尝试动态转换
+	// 获取目标类型 T 的反射信息
+	targetType := reflect.TypeOf(fallback)
+	val := reflect.ValueOf(value)
+
+	// 检查底层值是否可以转换成目标类型 T
+	// 这涵盖了 int -> int64, float64 -> int64, int32 -> int64 等所有情况
+	if val.Type().ConvertibleTo(targetType) {
+		return val.Convert(targetType).Interface().(T)
+	}
+
+	// 3. 转换失败则返回默认零值
 	return fallback
 }
 
