@@ -8,13 +8,10 @@ import (
 	request "api/app/requests"
 	authRequest "api/app/requests/client/auth"
 
-	// "api/pkg/logger"
-
 	"github.com/gin-gonic/gin"
 
 	"api/app/models/user"
 	"api/pkg/jwt"
-	"api/pkg/logger"
 	"api/pkg/response"
 )
 
@@ -65,7 +62,6 @@ func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
 
 	userModel.Create()
 
-	logger.DebugJSON("create", "user", userModel)
 	if userModel.ID > 0 {
 		token := jwt.NewJWT().IssueToken(userModel.GetStringID(), userModel.DisplayName, "user", "shop-user")
 
@@ -76,4 +72,8 @@ func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
 	} else {
 		response.Abort500(c, "user create failed, please try again later")
 	}
+}
+
+func (sc *SignupController) SignupUseingGoogle(c *gin.Context) {
+
 }

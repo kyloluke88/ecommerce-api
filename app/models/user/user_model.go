@@ -4,6 +4,7 @@ package user
 import (
 	"api/app/models"
 	"api/pkg/database"
+	"api/pkg/hash"
 
 	// "gohub/pkg/hash"
 	"fmt"
@@ -33,9 +34,9 @@ func (userModel *User) Create() {
 }
 
 // ComparePassword 密码是否正确
-// func (userModel *User) ComparePassword(_password string) bool {
-// 	return hash.BcryptCheck(_password, userModel.Password)
-// }
+func (userModel *User) ComparePassword(_password string) bool {
+	return hash.BcryptCheck(_password, userModel.Password)
+}
 
 func (userModel *User) Save() (rowsAffected int64) {
 	result := database.DB.Save(&userModel)

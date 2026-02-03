@@ -22,17 +22,20 @@ func RegisterApiRoutes(r *gin.Engine) {
 		v1 = r.Group("/v1")
 	}
 
-	v1.Use(middlewares.Common())
+	v1.Use(middlewares.Common(), middlewares.LimitIP("200-H"))
 	authGroup := v1.Group("/auth")
+	authGroup.Use(middlewares.LimitIP("1000-H"))
 	{
-
 		suc := new(clientAuth.SignupController)
 		authGroup.POST("/signup/email/exist", suc.IsEmailExist)
 		authGroup.POST("/signup/using-email", suc.SignupUsingEmail)
 
 		sic := new(clientAuth.SigninController)
-		authGroup.POST("/signin", sic.SignIn)
+		authGroup.POST("/signin/using-password", sic.SignInByPassword)
 		authGroup.POST("/signin/refresh_token", middlewares.AuthJWT(), sic.RefreshToken)
+
+		// 图片验证码
+		// authGroup.POST("/verify-codes/captcha", middlewares.LimitPerRoute("50-H"), vcc.ShowCaptcha)
 
 	}
 

@@ -4,35 +4,47 @@ package auth
 import (
 	v1 "api/app/http/controllers/client/v1"
 	"api/pkg/jwt"
+	"api/pkg/logger"
 	"api/pkg/response"
+
+	authRequest "api/app/requests/client/auth"
+	"api/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SigninController 注册控制器
 type SigninController struct {
-    v1.BaseAPIController
+	v1.BaseAPIController
 }
 
-func (sc *SigninController) SignIn(c *gin.Context) {
+func (sc *SigninController) SignInByPassword(c *gin.Context) {
 
-	// user := user.Get("1")	
-	
+	var req authRequest.SigninByPasswordRequest
 
-	token := jwt.NewJWT().IssueToken("11", "xiaolu", "user", "shop-user")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err, "ShouldBindJSON ERR")
+		return
+	}
 
-        response.JSON(c, gin.H{
-            "token": token,
-        })
-
-	// response.Data(c, gin.H{"login": "login successful"})
+	logger.DebugJSON("login", "req", req)
+	user, err := auth.Attempt(req.LoginId, req.Password)
+	if err != nil {
+		response.Unauthorized(c, "login_id is not exist or password is incorrect")
+		return
+	} else {
+		token := jwt.NewJWT().IssueToken(user.GetStringID(), user.FullName(), "user", "shop-user")
+		response.JSON(c, gin.H{
+			"token": token,
+		})
+	}
 }
 
 func (sc *SigninController) RefreshToken(c *gin.Context) {
 
-	token,err := jwt.NewJWT().RefreshToken(c)
+	token, err := jwt.NewJWT().RefreshToken(c)
 	if err != nil {
-		response.Error(c,err,"token refresh failed")
+		response.Error(c, err, "token refresh failed")
 	} else {
 		response.JSON(c, gin.H{
 			"token": token,
