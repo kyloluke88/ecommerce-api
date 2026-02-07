@@ -2,7 +2,7 @@
 package auth
 
 import (
-	v1 "api/app/http/controllers/client/v1"
+	"api/app/http/controllers/client"
 	"api/pkg/jwt"
 	"api/pkg/logger"
 	"api/pkg/response"
@@ -15,7 +15,7 @@ import (
 
 // SigninController 注册控制器
 type SigninController struct {
-	v1.BaseAPIController
+	client.BaseAPIController
 }
 
 func (sc *SigninController) SignInByPassword(c *gin.Context) {

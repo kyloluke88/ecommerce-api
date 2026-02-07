@@ -1,4 +1,4 @@
-package v1
+package client
 
 import (
 	"api/pkg/response"
@@ -10,10 +10,7 @@ type UserController struct {
 	BaseAPIController
 }
 
-
-func (ctrl UserController)CurrentUser(c *gin.Context) {
-
-
+func (ctrl UserController) CurrentUser(c *gin.Context) {
 	response.JSON(c, gin.H{
 		"data": "successful",
 	})

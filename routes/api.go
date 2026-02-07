@@ -1,29 +1,31 @@
 package routes
 
 import (
-	clientAuth "api/app/http/controllers/client/v1/auth"
+	clientAuth "api/app/http/controllers/client/auth"
 
 	"api/pkg/config"
 
 	"api/app/http/middlewares"
 
 	"github.com/gin-gonic/gin"
+
+	"api/app/http/controllers/admin"
 )
 
 // RegisterApiRoutes 注册网页相关路由
 func RegisterApiRoutes(r *gin.Engine) {
 
 	// 测试一个 v1 的路由组，我们所有的 v1 版本的路由都将存放到这里
-	var v1 *gin.RouterGroup
+	var route *gin.RouterGroup
 
 	if len(config.Get[string]("app.api_domain")) == 0 {
-		v1 = r.Group("/api/v1")
-	} else {
-		v1 = r.Group("/v1")
+		route = r.Group("/api")
 	}
 
-	v1.Use(middlewares.Common(), middlewares.LimitIP("200-H"))
-	authGroup := v1.Group("/auth")
+	route.Use(middlewares.Common(), middlewares.LimitIP("200-H"))
+
+	authGroup := route.Group("/auth")
+
 	authGroup.Use(middlewares.LimitIP("1000-H"))
 	{
 		suc := new(clientAuth.SignupController)
@@ -39,25 +41,17 @@ func RegisterApiRoutes(r *gin.Engine) {
 
 	}
 
-	// userGroup := v1.Group("/user", middlewares.AuthJWT())
-	// {
-	// 	authGroup.Use(middlewares.AuthJWT())
-	// 	{
-	// 		suc := new(clientUser.UserController)
-	// 		authGroup.POST("/signup/email/exist", suc.IsEmailExist)
-	// 		authGroup.POST("/signin", suc.SignIn)
-	// 		authGroup.POST("/signin/refresh_token", suc.SignIn)
-	// 	}
+	adminGroup := route.Group("/admin")
+	{
+		// adminAuthGroup := adminGroup.Group("/auth")
+		// {
+		// 	suc := new(adminAuth.SignupController)
+		// 	adminAuthGroup.POST("/signup/email/exist", suc.SignupUsingEmail)
+		// }
 
-	// }
+		pc := new(admin.ProductController)
+		adminGroup.POST("/product/1688", pc.GetProductFrom1688)
 
-	// admin := v1.Group("admin")
-	// {
-	// 	auth := admin.Group("/auth")
-	// 	{
-	// 		suc := new(clientAuth.SignupController)
-	// 		auth.POST("/signup/email/exist", suc.SignupUsingEmail)
-	// 	}
-	// }
+	}
 
 }

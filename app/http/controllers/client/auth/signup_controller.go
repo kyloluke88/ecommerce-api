@@ -2,7 +2,7 @@
 package auth
 
 import (
-	v1 "api/app/http/controllers/client/v1"
+	"api/app/http/controllers/client"
 	"api/app/requests"
 
 	request "api/app/requests"
@@ -17,7 +17,7 @@ import (
 
 // SignupController 注册控制器
 type SignupController struct {
-	v1.BaseAPIController
+	client.BaseAPIController
 }
 
 func (*SignupController) IsEmailExist(c *gin.Context) {
