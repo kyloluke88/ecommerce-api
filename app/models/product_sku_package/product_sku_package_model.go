@@ -7,13 +7,14 @@ import (
 
 type ProductSkuPackage struct {
 	models.BaseModel
-	Volume float64 `json:"volume"`
-	Title  string  `json:"title"`
-	Length float64 `json:"length"`
-	Width  float64 `json:"width"`
-	Height float64 `json:"height"`
-	Weight int     `json:"weight"`
-	SkuID  int64   `json:"skuId"` // 外键
+	SkuID     uint64  `json:"sku_id"`
+	Volume    float64 `json:"volume"`
+	Title     string  `json:"title"`
+	Length    float64 `json:"length"`
+	Width     float64 `json:"width"`
+	Height    float64 `json:"height"`
+	Weight    int     `json:"weight"`
+	SkuID1688 int64   `json:"sku_id_1688" gorm:"column:sku_id_1688"`
 	models.CommonTimestampsField
 }
 

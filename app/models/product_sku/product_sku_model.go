@@ -2,6 +2,7 @@ package productsku
 
 import (
 	"api/app/models"
+	productskupackage "api/app/models/product_sku_package"
 	"api/pkg/database"
 
 	"github.com/shopspring/decimal"
@@ -14,11 +15,13 @@ type ProductSku struct {
 	Description   string          `json:"description"`
 	ProductId     uint64          `json:"product_id"`
 	Stock         int64           `json:"stock"`
-	SkuID         int64           `json:"sku_id" gorm:"uniqueIndex"`
+	SkuID1688     int64           `json:"sku_id_1688" gorm:"column:sku_id_1688"`
 	SaleCount     int64           `json:"sale_count"`
 	PromotionSku  bool            `json:"promotion_sku"`
 	Price         decimal.Decimal `json:"price"`
 	DiscountPrice decimal.Decimal `json:"discount_price"`
+
+	SkuPackage *productskupackage.ProductSkuPackage `gorm:"foreignKey:sku_id;references:id"`
 
 	models.CommonTimestampsField
 }

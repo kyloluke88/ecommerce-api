@@ -8,15 +8,16 @@ import (
 
 	"api/app/models/company"
 	"api/app/models/product"
+	productattr "api/app/models/product_attr"
 	productimages "api/app/models/product_images"
 	productsku "api/app/models/product_sku"
 	productskupackage "api/app/models/product_sku_package"
+	productvideo "api/app/models/product_video"
 	adminRequest "api/app/requests/admin"
 	"api/pkg/response"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,8 +43,8 @@ type PromotionModel struct {
 }
 
 type SKU struct {
-	SpecAttrs     string          `json:"specAttrs"`
-	ProductId     uint64          `json:"product_id"`
+	SpecAttrs     string `json:"specAttrs"`
+	ProductId     uint64
 	CanBookCount  int64           `json:"canBookCount"`
 	SkuID         int64           `json:"skuId"`
 	SaleCount     int64           `json:"saleCount"`
@@ -82,18 +83,20 @@ type Video struct {
 }
 
 type FeatureAttribute struct {
-	Fid    int64    `json:"fid"`
-	Name   string   `json:"name"`
-	Value  string   `json:"value"`
-	Values []string `json:"values"`
+	Fid      int64  `json:"fid"`
+	Name     string `json:"name"`
+	Value    string `json:"value"`
+	IsActive bool
+}
 
-	DecisionValues []string `json:"decisionValues,omitempty"`
-	Unit           string   `json:"unit,omitempty"`
-
-	IsSpecial       bool `json:"isSpecial"`
-	ItemCpvDecision bool `json:"itemCpvDecision"`
-	Lectotype       bool `json:"lectotype"`
-	OutputType      int  `json:"outputType"`
+func (fa *FeatureAttribute) UnmarshalJSON(data []byte) error {
+	// 默认值
+	fa.IsActive = true
+	// 用一个 alias，避免递归调用
+	type Alias FeatureAttribute
+	aux := (*Alias)(fa)
+	// 正常反序列化
+	return json.Unmarshal(data, aux)
 }
 
 func dump(v any) {
@@ -103,275 +106,194 @@ func dump(v any) {
 
 func (pc *ProductController) GetProductFrom1688(c *gin.Context) {
 
-	if true {
-
-		req := adminRequest.GetProductFrom1688{}
-
-		err := c.ShouldBindJSON(&req)
-		if err != nil {
-			response.Error(c, err, "ShouldBindJSON ERR")
-			return
-		}
-
-		// logger.DebugJSON("parameter from frontend", "xxxxxxxx", req)
-
-		reqBody, _ := json.Marshal(req)
-
-		// logger.DebugJSON("marshal req body", "xxxxxxxx", reqBody)
-		resp, err := http.Post(
-			"http://crawler:4000/crawl",
-			"application/json",
-			bytes.NewBuffer(reqBody),
-		)
-
-		// logger.DebugJSON("http.Post", "xxxxxxxx", resp.Body)
-
-		if err != nil {
-			response.Error(c, err, "crawler service ERROR")
-			return
-		}
-		defer resp.Body.Close()
-
-		body, _ := io.ReadAll(resp.Body)
-
-		var result CrawlResponse
-		if err := json.Unmarshal(body, &result); err != nil {
-			response.Error(c, err, "crawler data unmarshal Error")
-			return
-		}
-
-		// html, err := os.ReadFile("1688_en.html")
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		htmlStr := result.HTML
-
-		re := regexp.MustCompile(`window\.contextPath,\{"result"[\s\S]*?</script>`)
-
-		jsonData := re.FindString(htmlStr)
-		if jsonData == "" {
-			panic("not found")
-		}
-
-		// fmt.Printf("RESULT raw (len=%d) prefix: %q\n", len(jsonData), jsonData[:min(80, len(jsonData))])
-
-		// 1 sku
-		target := `"skuMap":`
-		skuStr, err := extractJSONArray(jsonData, target)
-
-		if err != nil {
-			panic(err)
-		}
-		var skus []SKU
-		err = json.Unmarshal([]byte(skuStr), &skus)
-
-		if err != nil {
-			panic(err)
-		}
-
-		dump(skus)
-
-		// 2 捆包
-		packageStr, err := extractPieceWeightScale(jsonData)
-		// fmt.Printf("RESULT raw (len=%d) prefix: %q\n", len(packageStr), packageStr[:min(80, len(packageStr))])
-
-		if err != nil {
-			panic(err)
-		}
-
-		var pws PieceWeightScale
-		err = json.Unmarshal([]byte(packageStr), &pws)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// dump(pws)
-
-		// return
-
-		// 3 主图
-		target = `"imageList":`
-		imageListJSON, err := extractJSONArray(jsonData, target)
-		if err != nil {
-			panic(err)
-		}
-
-		var imageModels []productimages.ProductImage
-		if err := json.Unmarshal([]byte(imageListJSON), &imageModels); err != nil {
-			panic(err)
-		}
-
-		// dump(images)
-
-		// 4 商品视频
-
-		target = `"video":`
-		videoJSON, err := extractJSONObject(jsonData, target)
-		if err != nil {
-			panic(err)
-		}
-
-		var video Video
-		if err := json.Unmarshal([]byte(videoJSON), &video); err != nil {
-			panic(err)
-		}
-
-		// dump(video)
-
-		// 5 商品属性
-		faJSON, err := extractJSONArray(jsonData, "featureAttributes")
-		if err != nil {
-			panic(err)
-		}
-
-		var attrs []FeatureAttribute
-		if err := json.Unmarshal([]byte(faJSON), &attrs); err != nil {
-			panic(err)
-		}
-
-		// dump(attrs)
-
-		// 6. 商品详情的url
-
-		target = `"detailUrl":`
-		detailUrl, err := extract[string](jsonData, target, ValueString)
-
-		if err != nil {
-			panic(err)
-		}
-
-		dump(detailUrl)
-
-		// 7 标题，货物所在地,最低价,最高价,价格字符串
-
-		// re = regexp.MustCompile(`"location"\s*:\s*"[^"]*"`)
-		// location := re.FindString(jsonData)
-
-		location, err := extract[string](jsonData, `"location":`, ValueString)
-		offerMaxPrice, err := extract[string](jsonData, `"offerMaxPrice":`, ValueString)
-		offerMinPrice, err := extract[string](jsonData, `"offerMinPrice":`, ValueString)
-		offerPriceDisplay, err := extract[string](jsonData, `"offerPriceDisplay":`, ValueString)
-		subject, err := extract[string](jsonData, `"subject":`, ValueString)
-
-		dump(location)
-		// dump(offerMaxPrice)
-		// dump(offerMinPrice)
-		// dump(offerPriceDisplay)
-		// dump(subject)
-
-		fmt.Printf("%q", offerPriceDisplay)
-
-		// 创建公司
-		companyName, err := extract[string](jsonData, `"companyName":`, ValueString)
-		companyUrl, err := extract[string](jsonData, `"offerlistUrl":`, ValueString)
-		companyIdFrom1688, err := extract[int64](jsonData, `"offerId":`, ValueInt)
-		// dump(companyName)
-		// dump(companyUrl)
-
-		companyModel := company.Company{
-			Name:              companyName,
-			Url:               companyUrl,
-			CompanyIDFrom1688: companyIdFrom1688,
-		}
-		companyModel.Create()
-
-		// 创建商品
-		maxPrice, _ := decimal.NewFromString(offerMaxPrice)
-		minPrice, _ := decimal.NewFromString(offerMinPrice)
-		productModel := product.Product{
-			CompanyID: companyModel.ID,
-			Title:     subject,
-			MaxPrice:  maxPrice,
-			MinPrice:  minPrice,
-			OnSale:    true,
-			SaleCount: 0,
-		}
-
-		productModel.Create()
-
-		// 创建sku
-		productSkuModels := make([]productsku.ProductSku, 0, len(skus))
-		for i := range skus {
-			productSkuModels = append(productSkuModels, skus[i].ToModel(productModel.ID))
-		}
-
-		productsku.BatchCreateSKUs(productSkuModels)
-
-		// 创建轮播图
-		for i := range imageModels {
-			imageModels[i].ProductID = productModel.ID
-		}
-		productimages.BatchCreateImages(imageModels)
-
-		// 创建 捆包信息
-		productSkuPackageModels := make([]productskupackage.ProductSkuPackage, 0, len(pws.PieceWeightScaleItems))
-
-		for i := range pws.PieceWeightScaleItems {
-			productSkuPackageModels = append(productSkuPackageModels, pws.PieceWeightScaleItems[i].ToModel())
-		}
-		productskupackage.BatchCreatePackages(productSkuPackageModels)
-
-		if err != nil {
-			panic(err)
-		}
-
-		response.Data(c, gin.H{
-			"data": 111,
-		})
-	} else {
-
-		req := adminRequest.GetProductFrom1688{}
-
-		err := c.ShouldBindJSON(&req)
-		if err != nil {
-			response.Error(c, err, "ShouldBindJSON ERR")
-			return
-		}
-
-		// logger.DebugJSON("parameter from frontend", "xxxxxxxx", req)
-
-		reqBody, _ := json.Marshal(req)
-
-		// logger.DebugJSON("marshal req body", "xxxxxxxx", reqBody)
-		resp, err := http.Post(
-			"http://crawler:4000/crawl",
-			"application/json",
-			bytes.NewBuffer(reqBody),
-		)
-
-		// logger.DebugJSON("http.Post", "xxxxxxxx", resp.Body)
-
-		if err != nil {
-			response.Error(c, err, "crawler service ERROR")
-			return
-		}
-		defer resp.Body.Close()
-
-		body, _ := io.ReadAll(resp.Body)
-
-		var result CrawlResponse
-		if err := json.Unmarshal(body, &result); err != nil {
-			response.Error(c, err, "crawler data unmarshal Error")
-			return
-		}
-
-		if !result.Success {
-			response.Error(c, err, "crawl failed")
-			return
-		}
-
-		err = os.WriteFile(
-			"1688_en.html",      // 文件名
-			[]byte(result.HTML), // 内容
-			0644,                // 权限
-		)
-		if err != nil {
-			response.Error(c, err, "save html file failed")
-			return
-		}
+	req := adminRequest.GetProductFrom1688{}
+
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		response.Error(c, err, "ShouldBindJSON ERR")
+		return
 	}
+
+	crawlRes, err := getJsonFrom1688(c, req)
+
+	htmlStr := crawlRes.HTML
+
+	// html, err := os.ReadFile("1688_en.html")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// htmlStr := string(html)
+
+	re := regexp.MustCompile(`window\.contextPath,\{"result"[\s\S]*?</script>`)
+
+	jsonData := re.FindString(htmlStr)
+	if jsonData == "" {
+		panic("not found")
+	}
+
+	// fmt.Printf("RESULT raw (len=%d) prefix: %q\n", len(jsonData), jsonData[:min(80, len(jsonData))])
+
+	// 1 sku
+	skuStr, err := extractJSONArray(jsonData, `"skuMap":`)
+
+	if err != nil {
+		panic(err)
+	}
+	var skus []SKU
+	err = json.Unmarshal([]byte(skuStr), &skus)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// 2 捆包
+	packageStr, err := extractPieceWeightScale(jsonData)
+	// fmt.Printf("RESULT raw (len=%d) prefix: %q\n", len(packageStr), packageStr[:min(80, len(packageStr))])
+
+	if err != nil {
+		panic(err)
+	}
+
+	var pws PieceWeightScale
+	err = json.Unmarshal([]byte(packageStr), &pws)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// dump(pws)
+
+	// return
+
+	// 3 主图
+	imageListJSON, err := extractJSONArray(jsonData, `"imageList":`)
+	if err != nil {
+		panic(err)
+	}
+
+	var imageModels []productimages.ProductImage
+	if err := json.Unmarshal([]byte(imageListJSON), &imageModels); err != nil {
+		panic(err)
+	}
+
+	// dump(images)
+
+	// 4 商品视频
+
+	videoJSON, err := extractJSONObject(jsonData, `"video":`)
+	if err != nil {
+		panic(err)
+	}
+
+	var videoModel productvideo.ProductVideo
+	if err := json.Unmarshal([]byte(videoJSON), &videoModel); err != nil {
+		panic(err)
+	}
+
+	// dump(video)
+
+	// 5 商品属性
+	faJSON, err := extractJSONArray(jsonData, "featureAttributes")
+	if err != nil {
+		panic(err)
+	}
+
+	var attrs []FeatureAttribute
+	if err := json.Unmarshal([]byte(faJSON), &attrs); err != nil {
+		panic(err)
+	}
+
+	dump(attrs)
+
+	// 6. 商品详情的url
+
+	detailUrl, err := extract[string](jsonData, `"detailUrl":`, ValueString)
+
+	if err != nil {
+		panic(err)
+	}
+
+	dump(detailUrl)
+
+	// 7 标题，货物所在地,最低价,最高价,价格字符串
+
+	// re = regexp.MustCompile(`"location"\s*:\s*"[^"]*"`)
+	// location := re.FindString(jsonData)
+
+	location, err := extract[string](jsonData, `"location":`, ValueString)
+	offerMaxPrice, err := extract[string](jsonData, `"offerMaxPrice":`, ValueString)
+	offerMinPrice, err := extract[string](jsonData, `"offerMinPrice":`, ValueString)
+	subject, err := extract[string](jsonData, `"subject":`, ValueString)
+	offerPriceDisplay, err := extract[string](jsonData, `"offerPriceDisplay":`, ValueString)
+	fmt.Printf("%q", offerPriceDisplay)
+
+	// 创建公司
+	companyName, err := extract[string](jsonData, `"companyName":`, ValueString)
+	companyUrl, err := extract[string](jsonData, `"offerlistUrl":`, ValueString)
+	companyId1688, err := extract[string](jsonData, `"sellerMemberId":`, ValueString)
+
+	companyModel := company.Company{
+		Name:          companyName,
+		Url:           companyUrl,
+		CompanyId1688: companyId1688,
+	}
+	companyModel.Create()
+
+	// 创建商品
+	maxPrice, _ := decimal.NewFromString(offerMaxPrice)
+	minPrice, _ := decimal.NewFromString(offerMinPrice)
+
+	skuPackageMap := make(map[int64]productskupackage.ProductSkuPackage, len(pws.PieceWeightScaleItems))
+
+	for i := range pws.PieceWeightScaleItems {
+		item := pws.PieceWeightScaleItems[i]
+		skuPackageMap[item.SkuID] = item.ToModel()
+	}
+
+	// 创建sku
+	productSkuModels := make([]productsku.ProductSku, 0, len(skus))
+	for i := range skus {
+		sku := skus[i].ToModel()
+
+		if pkg, ok := skuPackageMap[skus[i].SkuID]; ok {
+			sku.SkuPackage = &pkg // 注意：一般是指针
+		}
+		productSkuModels = append(productSkuModels, sku)
+	}
+
+	// product attrs
+	productAttrsModels := make([]productattr.ProductAttr, 0, len(attrs))
+
+	for i := range attrs {
+		productAttrsModels = append(productAttrsModels, attrs[i].ToModel())
+	}
+
+	// productsku.BatchCreateSKUs(productSkuModels)
+	productId1688, err := extract[int64](jsonData, `"offerId":`, ValueInt)
+	productModel := product.Product{
+		CompanyID:     companyModel.ID,
+		ProductId1688: productId1688,
+		Title:         subject,
+		MaxPrice:      maxPrice,
+		MinPrice:      minPrice,
+		Location:      location,
+		OnSale:        true,
+		SaleCount:     0,
+		Video:         &videoModel, // 可有可无
+		Images:        imageModels,
+		Skus:          productSkuModels,
+		Attrs:         productAttrsModels,
+	}
+
+	productModel.Create()
+
+	if err != nil {
+		panic(err)
+	}
+
+	response.Data(c, gin.H{
+		"data": 111,
+	})
 
 }
 func extractPieceWeightScale(html string) (string, error) {
@@ -557,10 +479,9 @@ func extractJSONArray(html, key string) (string, error) {
 	return "", fmt.Errorf("matching ] not found")
 }
 
-func (sku *SKU) ToModel(productID uint64) productsku.ProductSku {
+func (sku *SKU) ToModel() productsku.ProductSku {
 	return productsku.ProductSku{
-		ProductId:     productID,
-		SkuID:         sku.SkuID,
+		SkuID1688:     sku.SkuID,
 		Price:         sku.Price,
 		PromotionSku:  sku.PromotionSku,
 		Stock:         sku.CanBookCount,
@@ -572,12 +493,47 @@ func (sku *SKU) ToModel(productID uint64) productsku.ProductSku {
 
 func (pwsi *PieceWeightScaleItem) ToModel() productskupackage.ProductSkuPackage {
 	return productskupackage.ProductSkuPackage{
-		Volume: pwsi.Volume,
-		Title:  pwsi.Title,
-		Length: pwsi.Length,
-		Width:  pwsi.Width,
-		Height: pwsi.Height,
-		Weight: pwsi.Weight,
-		SkuID:  pwsi.SkuID,
+		Volume:    pwsi.Volume,
+		Title:     pwsi.Title,
+		Length:    pwsi.Length,
+		Width:     pwsi.Width,
+		Height:    pwsi.Height,
+		Weight:    pwsi.Weight,
+		SkuID1688: pwsi.SkuID,
 	}
+}
+
+func (fa *FeatureAttribute) ToModel() productattr.ProductAttr {
+	return productattr.ProductAttr{
+		Fid:      fa.Fid,
+		Name:     fa.Name,
+		Value:    fa.Value,
+		IsActive: fa.IsActive,
+	}
+}
+
+func getJsonFrom1688(c *gin.Context, req adminRequest.GetProductFrom1688) (CrawlResponse, error) {
+	reqBody, _ := json.Marshal(req)
+
+	resp, err := http.Post(
+		"http://crawler:4000/crawl",
+		"application/json",
+		bytes.NewBuffer(reqBody),
+	)
+
+	if err != nil {
+		response.Error(c, err, "crawler service ERROR")
+		return CrawlResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var result CrawlResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		response.Error(c, err, "crawler data unmarshal Error")
+		return CrawlResponse{}, err
+	}
+
+	return result, nil
 }

@@ -7,9 +7,9 @@ import (
 
 type Company struct {
 	models.BaseModel
-	Name              string
-	Url               string
-	CompanyIDFrom1688 int64 `gorm:"column:company_id_from_1688"`
+	Name          string
+	Url           string
+	CompanyId1688 string `gorm:"column:company_id_1688"`
 
 	models.CommonTimestampsField
 }
