@@ -1,8 +1,8 @@
 package routes
 
 import (
+	"api/app/http/controllers/client"
 	clientAuth "api/app/http/controllers/client/auth"
-
 	"api/pkg/config"
 
 	"api/app/http/middlewares"
@@ -40,6 +40,9 @@ func RegisterApiRoutes(r *gin.Engine) {
 		// authGroup.POST("/verify-codes/captcha", middlewares.LimitPerRoute("50-H"), vcc.ShowCaptcha)
 
 	}
+
+	clientProduct := new(client.ProductController)
+	route.GET("/home/products", clientProduct.HomeProducts)
 
 	adminGroup := route.Group("/admin")
 	{

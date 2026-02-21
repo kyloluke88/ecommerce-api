@@ -33,7 +33,7 @@ func (sc *SigninController) SignInByPassword(c *gin.Context) {
 		response.Unauthorized(c, "login_id is not exist or password is incorrect")
 		return
 	} else {
-		token := jwt.NewJWT().IssueToken(user.GetStringID(), user.FullName(), "user", "shop-user")
+		token := jwt.NewJWT().IssueToken(user.GetStringID(), user.Email, "user", "shop-user")
 		response.JSON(c, gin.H{
 			"token": token,
 		})

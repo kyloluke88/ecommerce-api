@@ -3,6 +3,7 @@ tmp
 gohub
 .DS_Store
 .history
+.gocache
 
 # Golang #
 ######################

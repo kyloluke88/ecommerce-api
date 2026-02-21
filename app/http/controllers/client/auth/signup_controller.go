@@ -54,16 +54,18 @@ func (sc *SignupController) SignupUsingEmail(c *gin.Context) {
 	}
 
 	userModel := user.User{
-		Email:     req.Email,
-		Password:  req.Password,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
+		Email:        req.Email,
+		PasswordHash: req.Password,
+		UserProfile: user.UserProfile{
+			FirstName: req.FirstName,
+			LastName:  req.LastName,
+		},
 	}
 
 	userModel.Create()
 
 	if userModel.ID > 0 {
-		token := jwt.NewJWT().IssueToken(userModel.GetStringID(), userModel.DisplayName, "user", "shop-user")
+		token := jwt.NewJWT().IssueToken(userModel.GetStringID(), userModel.Email, "user", "shop-user")
 
 		response.JSON(c, gin.H{
 			"token": token,

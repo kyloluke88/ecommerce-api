@@ -128,7 +128,7 @@ func (pc *ProductController) GetProductFrom1688(c *gin.Context) {
 
 	jsonData := re.FindString(htmlStr)
 	if jsonData == "" {
-		panic("not found")
+		panic("product json data not found")
 	}
 
 	// fmt.Printf("RESULT raw (len=%d) prefix: %q\n", len(jsonData), jsonData[:min(80, len(jsonData))])
@@ -232,12 +232,11 @@ func (pc *ProductController) GetProductFrom1688(c *gin.Context) {
 	companyUrl, err := extract[string](jsonData, `"offerlistUrl":`, ValueString)
 	companyId1688, err := extract[string](jsonData, `"sellerMemberId":`, ValueString)
 
-	companyModel := company.Company{
-		Name:          companyName,
-		Url:           companyUrl,
-		CompanyId1688: companyId1688,
+	companyModel, err := company.FindOrCreateByCompanyID1688(companyId1688, companyName, companyUrl)
+	if err != nil {
+		response.Error(c, err, err.Error())
+		return
 	}
-	companyModel.Create()
 
 	// 创建商品
 	maxPrice, _ := decimal.NewFromString(offerMaxPrice)
@@ -268,11 +267,29 @@ func (pc *ProductController) GetProductFrom1688(c *gin.Context) {
 		productAttrsModels = append(productAttrsModels, attrs[i].ToModel())
 	}
 
-	// productsku.BatchCreateSKUs(productSkuModels)
 	productId1688, err := extract[int64](jsonData, `"offerId":`, ValueInt)
+	if err != nil {
+		panic(err)
+	}
+
+	// product_id_1688 已存在则跳过，不做任何插入
+	exists, existedProduct, err := product.ExistsByProductID1688(productId1688)
+	if err != nil {
+		response.Error(c, err, err.Error())
+		return
+	}
+	if exists {
+		response.Data(c, gin.H{
+			"data":    "product already exists, skipped",
+			"product": existedProduct.ID,
+		})
+		return
+	}
+
 	productModel := product.Product{
 		CompanyID:     companyModel.ID,
 		ProductId1688: productId1688,
+		SourceUrl:     req.ProductUrl,
 		Title:         subject,
 		MaxPrice:      maxPrice,
 		MinPrice:      minPrice,
@@ -285,14 +302,19 @@ func (pc *ProductController) GetProductFrom1688(c *gin.Context) {
 		Attrs:         productAttrsModels,
 	}
 
-	productModel.Create()
+	if err := productModel.CreateWithRelations(); err != nil {
+		response.Error(c, err, err.Error())
+		return
+	}
 
+	createdProduct, err := product.GetByIDWithRelations(productModel.ID)
 	if err != nil {
-		panic(err)
+		response.Error(c, err, err.Error())
+		return
 	}
 
 	response.Data(c, gin.H{
-		"data": 111,
+		"product": createdProduct,
 	})
 
 }
